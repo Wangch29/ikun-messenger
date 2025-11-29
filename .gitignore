@@ -1,0 +1,43 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/bin/
+/build/
+
+# Test binary
+*.test
+
+# Go workspace
+go.work
+go.work.sum
+
+# Dependency directories
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Protobuf generated files (optional - uncomment if you don't want to commit them)
+*.pb.go
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Debug
+debug
+__debug_bin*

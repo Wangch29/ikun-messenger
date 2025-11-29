@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package kvpb;
+
+option go_package = "./kvpb";
+
+// api/kvpb/kv.proto
+service KVService {
+  rpc Put(PutArgs) returns (PutReply);
+  rpc Get(GetArgs) returns (GetReply);
+}
+
+message PutArgs {
+  string key = 1;
+  string value = 2;
+  int64 client_id = 3;
+  int64 request_id = 4;
+}
+
+message PutReply {
+  string err = 1;
+}
+
+message GetArgs {
+  string key = 1;
+  int64 client_id = 2;
+  int64 request_id = 3;
+}
+
+message GetReply {
+  string err = 1;
+  string value = 2;
+}
