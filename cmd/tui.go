@@ -6,9 +6,11 @@ import (
 	"log"
 	"log/slog"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/Wangch29/ikun-messenger/config"
 	"github.com/Wangch29/ikun-messenger/im"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -30,13 +32,23 @@ var tuiCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(tuiCmd)
-	tuiCmd.Flags().StringVarP(&tuiServerAddr, "server", "s", "localhost:8080", "Server address")
+	tuiCmd.Flags().StringVarP(&tuiServerAddr, "server", "s", "", "Server address (override config)")
 }
 
 func runTui(cmd *cobra.Command, args []string) {
+	f, err := os.OpenFile("tui.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+	defer f.Close()
+
+	logger := slog.New(slog.NewTextHandler(f, nil))
+	slog.SetDefault(logger)
+
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		log.Fatal(err)
+		slog.Error("Error running program", "err", err)
+		os.Exit(1)
 	}
 }
 
@@ -57,6 +69,7 @@ var (
 
 	senderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // Purple
 	selfStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // Green
+	timeStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	helpStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("237")).Padding(0, 1)
 )
 
@@ -97,6 +110,7 @@ type model struct {
 	activeSession string                   // Current session name
 	sessions      []string                 // List of open sessions
 	chatHistory   map[string][]chatMessage // Map session -> messages
+	serverAddrs   []string                 // List of available servers
 
 	// --- Chat UI ---
 	viewport      viewport.Model
@@ -128,6 +142,21 @@ func initialModel() model {
 
 	vp := viewport.New(0, 0)
 
+	// Determine server addresses
+	var addrs []string
+	if tuiServerAddr != "" {
+		addrs = []string{tuiServerAddr}
+	} else {
+		// Load from config
+		for _, node := range config.Global.Nodes {
+			addrs = append(addrs, node.IMHttpAddr())
+		}
+	}
+	// Fallback
+	if len(addrs) == 0 {
+		addrs = []string{"localhost:8080"}
+	}
+
 	return model{
 		state:         stateLogin,
 		loginInput:    li,
@@ -137,6 +166,7 @@ func initialModel() model {
 		activeSession: "Global",
 		sessions:      []string{"Global"},
 		chatHistory:   make(map[string][]chatMessage),
+		serverAddrs:   addrs,
 	}
 }
 
@@ -187,8 +217,7 @@ func (m model) updateLogin(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.chatInput.Focus()
 		return m, m.waitForMessage()
 	case errMsg:
-		// TODO: Show error
-		return m, tea.Quit
+		return m, nil
 	}
 	m.loginInput, cmd = m.loginInput.Update(msg)
 	return m, cmd
@@ -299,7 +328,21 @@ func (m model) updateChat(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.activeSession == session {
 			m.renderChat()
 		}
-		return m, m.waitForMessage() // Continue listening
+		return m, m.waitForMessage()
+
+	case errMsg: // Disconnected during chat
+		slog.Error("Connection lost", "err", msg)
+		if m.conn != nil {
+			m.conn.Close()
+			m.conn = nil
+		}
+		// Attempt to reconnect
+		return m, m.connectWebSocket()
+
+	case connectedMsg: // Reconnected
+		m.conn = msg.conn
+		slog.Info("Reconnected")
+		return m, m.waitForMessage()
 	}
 
 	if !m.focusSideBar {
@@ -311,8 +354,6 @@ func (m model) updateChat(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	return m, tea.Batch(cmds...)
 }
-
-// --- Helpers ---
 
 func (m *model) appendMessage(session string, msg chatMessage) {
 	hist := m.chatHistory[session]
@@ -347,7 +388,12 @@ func (m *model) sendMessage(text string) {
 		m.renderChat()
 	}
 
-	m.conn.WriteJSON(msg)
+	if m.conn != nil {
+		m.conn.WriteJSON(msg)
+	} else {
+		// TODO: Queue message or show error
+		slog.Error("Cannot send message: disconnected")
+	}
 }
 
 func (m *model) renderChat() {
@@ -376,17 +422,28 @@ func (m *model) renderChat() {
 
 func (m model) connectWebSocket() tea.Cmd {
 	return func() tea.Msg {
-		u := url.URL{Scheme: "ws", Host: tuiServerAddr, Path: "/ws", RawQuery: "user_id=" + m.userName}
-		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-		if err != nil {
-			return errMsg(err)
+		// Retry loop
+		for {
+			for _, addr := range m.serverAddrs {
+				slog.Info("Attempting to connect", "addr", addr)
+				u := url.URL{Scheme: "ws", Host: addr, Path: "/ws", RawQuery: "user_id=" + m.userName}
+				conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+				if err == nil {
+					return connectedMsg{conn: conn}
+				}
+				slog.Info("Connection failed", "addr", addr, "err", err)
+			}
+			// Wait before retrying the list
+			time.Sleep(2 * time.Second)
 		}
-		return connectedMsg{conn: conn}
 	}
 }
 
 func (m model) waitForMessage() tea.Cmd {
 	return func() tea.Msg {
+		if m.conn == nil {
+			return errMsg(fmt.Errorf("connection is nil"))
+		}
 		_, message, err := m.conn.ReadMessage()
 		if err != nil {
 			slog.Error("Read error", "error", err)
