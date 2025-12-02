@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/url"
 	"os"
@@ -43,8 +44,13 @@ func runClient(cmd *cobra.Command, args []string) {
 	}
 	slog.Info("Connecting to ", "url", u.String())
 
-	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
+		if resp != nil {
+			body, _ := io.ReadAll(resp.Body)
+			slog.Error("Connection failed", "status", resp.StatusCode, "body", string(body))
+			resp.Body.Close()
+		}
 		slog.Error("Dial error", "error", err)
 		return
 	}

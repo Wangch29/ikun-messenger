@@ -59,6 +59,16 @@ func (s *IMServer) setupGateway() *Gateway {
 		}
 	}
 
+	gateway.AuthFunc = func(userID string) (bool, string) {
+		routeKey := "route:" + userID
+		location := s.clerk.Get(routeKey)
+
+		if location != "" {
+			return false, "Username already taken"
+		}
+		return true, ""
+	}
+
 	gateway.OnConnect = func(userID string) {
 		routeKey := "route:" + userID
 		s.clerk.Put(routeKey, s.nodeAddr)
