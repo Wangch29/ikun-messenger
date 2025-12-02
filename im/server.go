@@ -59,16 +59,6 @@ func (s *IMServer) setupGateway() *Gateway {
 		}
 	}
 
-	gateway.AuthFunc = func(userID string) (bool, string) {
-		routeKey := "route:" + userID
-		location := s.clerk.Get(routeKey)
-
-		if location != "" {
-			return false, "Username already taken"
-		}
-		return true, ""
-	}
-
 	gateway.OnConnect = func(userID string) {
 		routeKey := "route:" + userID
 		s.clerk.Put(routeKey, s.nodeAddr)
@@ -85,7 +75,11 @@ func (s *IMServer) setupGateway() *Gateway {
 }
 
 func (s *IMServer) handlePrivateMessage(from string, msg ClientMessage) {
+	slog.Info("Handling private message", "from", from, "to", msg.To, "content", msg.Content)
+
 	targetNode := s.clerk.Get("route:" + msg.To)
+
+	slog.Info("Target node", "target_node", targetNode)
 
 	if targetNode == "" {
 		slog.Error("Target node not found", "user_id", msg.To)
@@ -94,6 +88,7 @@ func (s *IMServer) handlePrivateMessage(from string, msg ClientMessage) {
 
 	if targetNode == s.nodeAddr {
 		// Send to the local user.
+		slog.Info("Sending private message to local user", "from", from, "to", msg.To, "content", msg.Content)
 		s.gateway.SendToUser(msg.To, ServerMessage{
 			Type:    "msg",
 			From:    from,
@@ -101,6 +96,7 @@ func (s *IMServer) handlePrivateMessage(from string, msg ClientMessage) {
 		})
 	} else {
 		// Forward to the target node.
+		slog.Info("Forwarding private message to target node", "from", from, "to", msg.To, "content", msg.Content)
 		go s.forwardPrivateMessage(targetNode, from, msg)
 	}
 }

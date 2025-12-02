@@ -23,7 +23,6 @@ type Gateway struct {
 	OnMessage    func(from string, msg []byte)
 	OnConnect    func(userID string)
 	OnDisconnect func(userID string)
-	AuthFunc     func(userID string) (bool, string)
 }
 
 func New() *Gateway {
@@ -39,13 +38,6 @@ func (g *Gateway) HandleWebSocket(c *gin.Context) {
 	if userID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id required"})
 		return
-	}
-	if g.AuthFunc != nil {
-		ok, reason := g.AuthFunc(userID)
-		if !ok {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": reason})
-			return
-		}
 	}
 
 	// Upgrade HTTP to WebSocket.
@@ -78,6 +70,13 @@ func (g *Gateway) SendToUser(userID string, msg interface{}) bool {
 	g.mu.RUnlock()
 
 	if !ok {
+		slog.Error("SendToUser failed: user not found", "target_user", userID)
+		// print all online users.
+		users := []string{}
+		for k := range g.conns {
+			users = append(users, k)
+		}
+		slog.Info("Current online users", "users", users)
 		return false
 	}
 

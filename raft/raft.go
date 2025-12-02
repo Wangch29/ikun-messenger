@@ -147,6 +147,9 @@ func (rf *Raft) Start(command []byte) (int, int, bool) {
 	})
 
 	rf.persist()
+
+	rf.updateCommitIndex()
+
 	return index, term, true
 }
 
@@ -357,6 +360,14 @@ func (rf *Raft) startElection() {
 	}
 
 	var votes int32 = 1
+
+	// When there is only one node, it will become leader immediately.
+	if votes > int32(len(rf.peers)/2) {
+		rf.becomeLeader()
+		rf.broadcastHeartbeats()
+		return
+	}
+
 	for i := range rf.peers {
 		if i == rf.me {
 			continue

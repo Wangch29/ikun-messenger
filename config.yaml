@@ -12,16 +12,16 @@ nodes:
     im_http_port: 8080
     im_grpc_port: 17000
 
-  - id: 1
-    host: "127.0.0.1"
-    raft_port: 25001
-    kv_port:   26001
-    im_http_port: 8081
-    im_grpc_port: 17001
+  #- id: 1
+  #  host: "127.0.0.1"
+  #  raft_port: 25001
+  #  kv_port:   26001
+  #  im_http_port: 8081
+  #  im_grpc_port: 17001
 
-  - id: 2
-    host: "127.0.0.1"
-    raft_port: 25002
-    kv_port:   26002
-    im_http_port: 8082
-    im_grpc_port: 17002
+  #- id: 2
+  #  host: "127.0.0.1"
+  #  raft_port: 25002
+  #  kv_port:   26002
+  #  im_http_port: 8082
+  #  im_grpc_port: 17002
