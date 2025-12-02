@@ -55,9 +55,9 @@ var (
 	focusedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	noStyle      = lipgloss.NewStyle()
 
-	senderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))   // Purple
-	selfStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("2"))   // Green
-	timeStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("240")) // Grey
+	senderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // Purple
+	selfStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("2")) // Green
+	helpStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("237")).Padding(0, 1)
 )
 
 // --- State Management ---
@@ -75,6 +75,13 @@ type connectedMsg struct {
 	conn *websocket.Conn
 }
 
+type chatMessage struct {
+	sender  string
+	content string
+	time    string
+	isSelf  bool
+}
+
 // --- Model ---
 type model struct {
 	state  state
@@ -87,15 +94,15 @@ type model struct {
 	// --- Chat Data ---
 	userName      string
 	conn          *websocket.Conn
-	activeSession string              // Current session name ("Global" or "username")
-	sessions      []string            // List of open sessions
-	chatHistory   map[string][]string // Map session -> messages
+	activeSession string                   // Current session name
+	sessions      []string                 // List of open sessions
+	chatHistory   map[string][]chatMessage // Map session -> messages
 
 	// --- Chat UI ---
 	viewport      viewport.Model
 	chatInput     textinput.Model
-	sidebarCursor int  // Cursor in sidebar
-	focusSideBar  bool // Is sidebar focused?
+	sidebarCursor int
+	focusSideBar  bool
 
 	// --- New Chat Popup ---
 	showNewChat  bool
@@ -129,7 +136,7 @@ func initialModel() model {
 		viewport:      vp,
 		activeSession: "Global",
 		sessions:      []string{"Global"},
-		chatHistory:   make(map[string][]string),
+		chatHistory:   make(map[string][]chatMessage),
 	}
 }
 
@@ -149,8 +156,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		// Recalculate layout
-		m.viewport.Width = m.width - 25 // Sidebar width approx 20
-		m.viewport.Height = m.height - 5
+		m.viewport.Width = m.width - 28  // Sidebar width 20 + padding/borders
+		m.viewport.Height = m.height - 7 // Reduce height to fit help bar
 		return m, nil
 	}
 
@@ -272,7 +279,7 @@ func (m model) updateChat(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Private message
 			session = msg.From
 			if msg.From == m.userName {
-				// TODO: handle self sent messages.
+				// TODO: Handle self sent message.
 			}
 		}
 
@@ -281,8 +288,13 @@ func (m model) updateChat(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sessions = append(m.sessions, session)
 		}
 
-		line := fmt.Sprintf("[%s] %s: %s", time.Now().Format("15:04"), msg.From, msg.Content)
-		m.chatHistory[session] = append(m.chatHistory[session], line)
+		chatMsg := chatMessage{
+			sender:  msg.From,
+			content: msg.Content,
+			time:    time.Now().Format("15:04"),
+			isSelf:  msg.From == m.userName,
+		}
+		m.appendMessage(session, chatMsg)
 
 		if m.activeSession == session {
 			m.renderChat()
@@ -302,6 +314,15 @@ func (m model) updateChat(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // --- Helpers ---
 
+func (m *model) appendMessage(session string, msg chatMessage) {
+	hist := m.chatHistory[session]
+	hist = append(hist, msg)
+	if len(hist) > 50 {
+		hist = hist[len(hist)-50:]
+	}
+	m.chatHistory[session] = hist
+}
+
 func (m *model) sendMessage(text string) {
 	var msg im.ClientMessage
 	if m.activeSession == "Global" {
@@ -315,11 +336,14 @@ func (m *model) sendMessage(text string) {
 			To:      m.activeSession,
 			Content: text,
 		}
-		// Manually add self message to history (since server might not echo private msg to sender?)
-		// Actually your server implementation: `s.gateway.SendToUser(msg.To)` -> only receiver gets it.
-		// So we must add it locally.
-		line := fmt.Sprintf("[%s] %s: %s", time.Now().Format("15:04"), m.userName, text)
-		m.chatHistory[m.activeSession] = append(m.chatHistory[m.activeSession], line)
+		// Manually add self message to history
+		chatMsg := chatMessage{
+			sender:  m.userName,
+			content: text,
+			time:    time.Now().Format("15:04"),
+			isSelf:  true,
+		}
+		m.appendMessage(m.activeSession, chatMsg)
 		m.renderChat()
 	}
 
@@ -327,8 +351,26 @@ func (m *model) sendMessage(text string) {
 }
 
 func (m *model) renderChat() {
-	lines := m.chatHistory[m.activeSession]
-	m.viewport.SetContent(strings.Join(lines, "\n"))
+	msgs := m.chatHistory[m.activeSession]
+	var viewStrings []string
+	width := m.viewport.Width // Full width
+
+	for _, msg := range msgs {
+		if msg.isSelf {
+			// Right aligned for self
+			content := fmt.Sprintf("%s :%s [%s]", msg.content, msg.sender, msg.time)
+			bubble := selfStyle.Render(content)
+			// Use PlaceHorizontal for reliable alignment
+			line := lipgloss.PlaceHorizontal(width, lipgloss.Right, bubble)
+			viewStrings = append(viewStrings, line)
+		} else {
+			// Left aligned for others
+			content := fmt.Sprintf("[%s] %s: %s", msg.time, msg.sender, msg.content)
+			bubble := senderStyle.Render(content)
+			viewStrings = append(viewStrings, bubble)
+		}
+	}
+	m.viewport.SetContent(strings.Join(viewStrings, "\n"))
 	m.viewport.GotoBottom()
 }
 
@@ -405,7 +447,7 @@ func (m model) View() string {
 
 	sidebar := lipgloss.NewStyle().
 		Width(20).
-		Height(m.height - 2).
+		Height(m.height - 4).
 		Border(lipgloss.RoundedBorder()).
 		BorderRight(true).
 		Render(sidebarContent)
@@ -418,7 +460,7 @@ func (m model) View() string {
 
 	chatView := chatStyle.
 		Width(m.width - 25).
-		Height(m.height - 5).
+		Height(m.height - 7).
 		Render(m.viewport.View())
 
 	inputView := m.chatInput.View()
@@ -427,10 +469,15 @@ func (m model) View() string {
 
 	mainView := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, rightPane)
 
+	// Help Bar
+	helpText := "  Tab: Focus Sidebar • Ctrl+n: New Chat • ↑/↓: Switch Session • Enter: Send/Select • Esc: Quit"
+	helpView := helpStyle.Copy().Width(m.width).Render(helpText)
+
+	finalView := lipgloss.JoinVertical(lipgloss.Left, mainView, helpView)
+
 	if m.showNewChat {
-		// Popup Overlay (Simplified: just replace content)
 		return fmt.Sprintf("\n  New Chat\n\n  Enter username: %s\n\n  (Esc to cancel)", m.newChatInput.View())
 	}
 
-	return mainView
+	return finalView
 }
