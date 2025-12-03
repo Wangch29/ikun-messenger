@@ -243,6 +243,7 @@ func (rf *Raft) AppendEntries(ctx context.Context, args *raftpb.AppendEntriesArg
 		reply.Success = false
 		reply.ConflictTerm = -1
 		reply.ConflictLen = int64(len(rf.log))
+		reply.ConflictIndex = int64(rf.getLastLogIndex() + 1)
 		return reply, nil
 	}
 
@@ -250,7 +251,15 @@ func (rf *Raft) AppendEntries(ctx context.Context, args *raftpb.AppendEntriesArg
 	if rf.getLogTerm(int(args.PrevLogIndex)) != int(args.PrevLogTerm) {
 		reply.Success = false
 		reply.ConflictTerm = int64(rf.getLogTerm(int(args.PrevLogIndex)))
-		reply.ConflictIndex = int64(rf.findConflictIndex(int(args.PrevLogIndex), int(reply.ConflictTerm)))
+		// Find the first index of this conflict term
+		conflictIndex := int(args.PrevLogIndex)
+		for i := int(args.PrevLogIndex); i > rf.lastIncludedIndex; i-- {
+			if rf.getLogTerm(i) != int(reply.ConflictTerm) {
+				break
+			}
+			conflictIndex = i
+		}
+		reply.ConflictIndex = int64(conflictIndex)
 		return reply, nil
 	}
 

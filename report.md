@@ -121,6 +121,49 @@ I leveraged several robust open-source libraries to build a production-quality s
 
 ## 5. Evaluation
 
+### Build
+
+Enter my directory in Khoury cluster.
+
+```sh 
+[chengfengwang@linux-075 ikun-messenger]$ ls
+api  cmd  config  config.yaml  go.mod  go.sum  im  kvraft  main.go  Makefile  raft  report.md
+```
+
+First, build grpc.
+
+```sh 
+make proto
+```
+
+Second, install go libs.
+
+```sh
+go mod tidy
+```
+
+You will see:
+
+![gomodtidy](./assets/gotidy.png)
+
+Now, build the executable:
+
+```sh
+go build -o ikun
+```
+
+You can see, "ikun" is the executable.
+
+![executable](./assets/1.png)
+
+### Raft Testing
+
+I write a test specific for testing the raft, run it by
+
+```sh
+go test -v ./raft/
+```
+
 
 
 

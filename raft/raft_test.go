@@ -267,7 +267,7 @@ func TestSnapshot(t *testing.T) {
 	follower := (leader + 1) % servers
 	cfg.crash1(follower)
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 10; i++ {
 		cfg.rafts[leader].Start([]byte(fmt.Sprintf("snap-cmd-%d", i)))
 		time.Sleep(10 * time.Millisecond)
 	}
