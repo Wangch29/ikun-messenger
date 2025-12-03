@@ -103,23 +103,7 @@ I leveraged several robust open-source libraries to build a production-quality s
 
 ---
 
-## 4. Achievements and underachievements.
-
-### Achievements
-
-*   **Core Raft:** Successfully implemented Leader Election, Log Replication, and Safety properties.
-*   **Log Compaction:** Implemented Snapshot mechanism. The system can discard old logs and send Snapshots to lagging followers (`InstallSnapshot`).
-*   **Linearizable KV Store:** Built a KV store that passes consistency checks even under partition/failure scenarios.
-*   **Resilient Messaging:** Implemented a chat system where clients can continue communicating even if the server they were connected to crashes (Client-side failover + Server-side routing recovery).
-*   **User-Friendly TUI Client:** Developed a fully interactive **Text-Based User Interface (TUI)**. Unlike a raw command-line interface that requires manual command entry, the TUI provides an intuitive visual layout for message history and navigation, significantly improving usability.
-
-
-### Underachievements
-*   **Joint Consensus:** Dynamic membership changes are not supported.
-*   **Persistent Storage:** Use a k-v database (e.g., using `rocksdb` or `leveldb`) would be a future improvement.
-*   **Lack of Advanced Optimization Features:** The current implementation focuses on correctness and safety. Advanced performance features typically found in industrial Raft implementations, such as **Pre-Vote mechanisms** and **Follower Reads**, are outside the scope of this project.
-
-## 5. Evaluation
+## 4. Evaluation
 
 ### Build
 
@@ -352,8 +336,29 @@ When client "kobe" sends a message to "ikun", the message appears only in the ne
 
 This demonstrates that the re-login event successfully updated the global router table via Raft, atomically changing the mapping for "ikun" from **Node 1** to **Node 0**. This verifies the **strong consistency** of the Raft implementation.
 
+#### Raft tests
+
+I have a test to only test the raft implementation,
+
+```sh
+go test -v -count=1 ./raft/
+```
+
+## 5. Achievements and underachievements.
+
+### Achievements
+
+*   **Core Raft:** Successfully implemented Leader Election, Log Replication, and Safety properties.
+*   **Log Compaction:** Implemented Snapshot mechanism. The system can discard old logs and send Snapshots to lagging followers (`InstallSnapshot`).
+*   **Linearizable KV Store:** Built a KV store that passes consistency checks even under partition/failure scenarios.
+*   **Resilient Messaging:** Implemented a chat system where clients can continue communicating even if the server they were connected to crashes (Client-side failover + Server-side routing recovery).
+*   **User-Friendly TUI Client:** Developed a fully interactive **Text-Based User Interface (TUI)**. Unlike a raw command-line interface that requires manual command entry, the TUI provides an intuitive visual layout for message history and navigation, significantly improving usability.
 
 
+### Underachievements
+*   **Joint Consensus:** Dynamic membership changes are not supported.
+*   **Persistent Storage:** Use a k-v database (e.g., using `rocksdb` or `leveldb`) would be a future improvement.
+*   **Lack of Advanced Optimization Features:** The current implementation focuses on correctness and safety. Advanced performance features typically found in industrial Raft implementations, such as **Pre-Vote mechanisms** and **Follower Reads**, are outside the scope of this project.
 
 
 

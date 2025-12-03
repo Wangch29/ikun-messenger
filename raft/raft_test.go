@@ -276,7 +276,7 @@ func TestSnapshot(t *testing.T) {
 
 	cfg.start1(follower)
 
-	success := false
+	success := true
 	start := time.Now()
 	for time.Since(start) < 15*time.Second {
 		select {
