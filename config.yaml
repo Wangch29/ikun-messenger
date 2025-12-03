@@ -1,26 +1,27 @@
 # config.yaml
 
 # Current node ID (can be overridden by command line flag)
-id: 0
+id: 0 
 
 # Cluster nodes configuration
+# Recommend to only change the host, don't change the ports.
 nodes:
   - id: 0
-    host: "127.0.0.1"
+    host: "127.0.0.1" # [change this]
     raft_port: 25000
     kv_port:   26000
     im_http_port: 28080
     im_grpc_port: 17000
 
   - id: 1
-    host: "127.0.0.1"
+    host: "127.0.0.1" # [change this]
     raft_port: 25001
     kv_port:   26001
     im_http_port: 28081
     im_grpc_port: 17001
 
   - id: 2
-    host: "127.0.0.1"
+    host: "127.0.0.1" # [change this]
     raft_port: 25002
     kv_port:   26002
     im_http_port: 28082

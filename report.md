@@ -156,13 +156,162 @@ You can see, "ikun" is the executable.
 
 ![executable](./assets/1.png)
 
-### Raft Testing
+### Start IM Server
 
-I write a test specific for testing the raft, run it by
+
+#### Config
+
+First, you should fill the config.yaml with your server addresses.
+
+Only need to change the **host**, don't recommand to change the ports, id.
+
+![2](./assets/2.png)
+
+#### Start servers
+
+We'll start three nodes in the example.
+
+In your id=0 node (linux-075.khoury.northeastern.edu in my example), and I'll call it **node0** in the latter.
 
 ```sh
-go test -v ./raft/
+./ikun server -m 0
 ```
+
+"server" means run the IM server 
+
+"-m 0" means **it's the first node(id=0) in config.yaml.** You must run command in the correct server.
+
+![3](./assets/3.png)
+
+You will see server start runnning....
+
+The same for **node1** and **node2**:
+
+In node1 (linux-076.khoury.northeastern.edu)
+
+```sh
+./ikun server -m 1
+```
+
+In node2 (linux-077.khoury.northeastern.edu)
+
+```sh
+./ikun server -m 2
+```
+
+And you can see in one of your node that, a leader was elected.
+
+![4](./assets/4.png)
+
+
+#### Run Client and Global Channel
+
+In a new server, for me, in linux-078.khoury.northeastern.edu, run 
+
+```sh
+./ikun tui
+```
+
+You'll see a place to enter your name, and I enter the name "ikun".
+
+![5](./assets/5.png)
+
+Press "Enter", you'll login to the IM client with username "ikun".
+
+![](./assets/6.png)
+
+
+In the new server, for me in linux-079.khoury.northeastern.edu, run another client:
+
+```sh
+./ikun tui
+```
+
+![](./assets/7.png)
+
+But use a different username (I use "kobe"):
+
+![](./assets/8.png)
+
+
+And Now, you can chat in the global channel, and all users can receive your messages:
+
+
+![](./assets/9.png)
+
+![](./assets/10.png)
+
+#### Private Channel
+
+And if I(ikun) only want to talk to kobe, I can send a private message. 
+
+First, press "ctrl+n" (you can see some help info at the bottom of the window too):
+
+Enter the person you want to talk to, here I enter "kobe"
+
+![](./assets/11.png)
+
+Press "enter", and you can enter a private session to kobe, send something:
+
+![](./assets/12.png)
+
+And back to "kobe"'s window, you'll find a new session in the left sidebar.
+
+Press "tab" to switch to the left sidebar, and use direction button to switch to the "ikun" session, then press "enter" to enter this session:
+
+![](./assets/13.png)
+![](./assets/14.png)
+
+You can look at the bottom of your screen, there's key info.
+
+And you can receive the private message from "ikun", and send back something!
+
+![](./assets/15.png)
+
+
+
+#### Server Crash
+
+We'll explore "raft" features.
+
+Now, both of "ikun" and "kobe" are connect to node0:
+
+![](./assets/16.png)
+
+Now we'll go to **node0**, and press "ctrl+c" to shutdown it.
+
+![](./assets/17.png)
+
+And both "ikun" and "kobe" are automated reconnected to node1:
+
+![](./assets/18.png)
+
+The red error just means node0 is disconnected, nothing to worry about...
+
+And you can still talk when node0 is disconnected:
+
+![](./assets/19.png)
+
+#### Server rejoins
+
+Now, restart node0, by running:
+
+```sh
+./ikun server -m 0
+```
+
+The node0 rejoin, and start the third client in a new server, for me, it's **linux-080.khoury.northeastern.edu**
+
+Run tui and use the name "cxk"
+
+```sh
+./ikun tui
+```
+
+Send a private messages to "ikun":
+
+
+
 
 
 

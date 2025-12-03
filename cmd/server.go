@@ -49,9 +49,7 @@ func runServer(cmd *cobra.Command, args []string) {
 	myConfig := config.Global.Nodes[serverMe]
 
 	applyCh := make(chan raft.ApplyMsg)
-	// Use FileStorage for persistence
-	storage := raft.NewFileStorage("raft-data", serverMe)
-	rf := raft.Make(raftPeers, serverMe, storage, applyCh)
+	rf := raft.Make(raftPeers, serverMe, raft.NewMemoryStorage(), applyCh)
 
 	// Start Raft Server
 	go func() {
